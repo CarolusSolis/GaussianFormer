@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  gaussianformer:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: gaussianformer:latest
+    container_name: gaussianformer
+    volumes:
+      - .:/app
+      - /tmp/.X11-unix:/tmp/.X11-unix  # For GUI applications if needed
+    environment:
+      - DISPLAY=$DISPLAY  # For GUI applications if needed
+      - NVIDIA_VISIBLE_DEVICES=all
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    command: /bin/bash  # Interactive shell
+    stdin_open: true
+    tty: true
