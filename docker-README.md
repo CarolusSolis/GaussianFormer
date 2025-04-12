@@ -12,18 +12,17 @@ This Docker setup provides a reproducible environment for running GaussianFormer
 
 1. Build the Docker image:
    ```bash
-   docker-compose build
+   docker compose build
    ```
 
 2. Run the container (interactive mode):
    ```bash
-   docker-compose up -d
-   docker-compose exec gaussianformer bash
+   docker run --gpus all -it -v "$(pwd)":/app --rm gaussianformer:latest
    ```
 
-3. Alternatively, use the following command to run and enter the container in one step:
+3. Exit the container:
    ```bash
-   docker-compose run --rm gaussianformer
+   exit
    ```
 
 ## Docker Configuration
