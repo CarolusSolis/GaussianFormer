@@ -59,22 +59,27 @@ WORKDIR /app
 COPY . /app/
 
 # Install custom CUDA ops with proper environment setup
-RUN cd /app/model/encoder/gaussian_encoder/ops && \
+RUN cd /app/model/head/localagg_prob && \
     CPATH=$CUDA_HOME/include:$CPATH \
-    TORCH_CUDA_ARCH_LIST="8.0" \
+    TORCH_CUDA_ARCH_LIST="8.0;8.6" \
     pip install -e . && \
     cd /app/model/head/localagg && \
     CPATH=$CUDA_HOME/include:$CPATH \
-    TORCH_CUDA_ARCH_LIST="8.0" \
-    pip install -e . && \
-    cd /app/model/head/localagg_prob && \
-    CPATH=$CUDA_HOME/include:$CPATH \
-    TORCH_CUDA_ARCH_LIST="8.0" \
+    TORCH_CUDA_ARCH_LIST="8.0;8.6" \
     pip install -e . && \
     cd /app/model/head/localagg_prob_fast && \
     CPATH=$CUDA_HOME/include:$CPATH \
-    TORCH_CUDA_ARCH_LIST="8.0" \
-    pip install -e .
+    TORCH_CUDA_ARCH_LIST="8.0;8.6" \
+    pip install -e . && \
+    cd /app/model/encoder/gaussian_encoder/ops && \
+    CPATH=$CUDA_HOME/include:$CPATH \
+    TORCH_CUDA_ARCH_LIST="8.0;8.6" \
+    pip install -e . \
+    cd /app && \
+    git clone https://github.com/xieyuser/pointops.git && \
+    cd pointops && \
+    echo "from pointops.functions.pointops import furthestsampling as farthest_point_sampling" > __init__.py && \
+    python setup.py install
 
 # Set the entrypoint
 ENTRYPOINT ["/bin/bash"]
