@@ -74,8 +74,8 @@ RUN cd /app/model/head/localagg_prob && \
     cd /app/model/encoder/gaussian_encoder/ops && \
     CPATH=$CUDA_HOME/include:$CPATH \
     TORCH_CUDA_ARCH_LIST="8.0;8.6" \
-    pip install -e . \
-    cd /app && \
+    pip install -e . && \
+    cd /tmp && \
     git clone https://github.com/xieyuser/pointops.git && \
     cd pointops && \
     echo "from pointops.functions.pointops import furthestsampling as farthest_point_sampling" > __init__.py && \
