@@ -9,7 +9,7 @@ from ..utils.sampler import DistributionSampler
 try:
     from pointops import farthest_point_sampling
 except:
-    print("farthest_point_sampling import error.")
+    raise ImportError("farthest_point_sampling import error.")
 
 
 @MODELS.register_module()

@@ -172,3 +172,4 @@ modify_weight.py
 *.npy
 epoch2sd.py
 pyrightconfig.json
+wandb/

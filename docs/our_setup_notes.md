@@ -47,3 +47,9 @@ Follow the docker-README.md in the project root directory.
 ```bash
 python eval.py --py-config config/prob/nuscenes_gs25600.py --work-dir out/prob256/ --resume-from ckpts/Prob256_state_dict.pth     
 ```
+
+### Training
+
+```bash
+python train.py --py-config config/prob/nuscenes_gs6400.py --work-dir out/prob6400/ --use-wandb --wandb-project gaussianformer2 --wandb-name test64
+```

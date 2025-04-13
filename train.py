@@ -11,6 +11,7 @@ from mmengine.logging import MMLogger
 from mmengine.utils import symlink
 from mmseg.models import build_segmentor
 from timm.scheduler import CosineLRScheduler, MultiStepLRScheduler
+import wandb
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -24,6 +25,17 @@ def main(local_rank, args):
     set_random_seed(args.seed)
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = True
+    
+    # Initialize wandb only on the main process (rank 0)
+    if local_rank == 0 and args.use_wandb:
+        wandb_project = args.wandb_project if args.wandb_project else "GaussianFormer"
+        wandb_name = args.wandb_name if args.wandb_name else os.path.basename(args.work_dir)
+        wandb.init(
+            project=wandb_project,
+            name=wandb_name,
+            config=vars(args),
+            resume=args.resume_from if args.resume_from else None,
+        )
 
     # load config
     cfg = Config.fromfile(args.py_config)
@@ -246,6 +258,21 @@ def main(local_rank, args):
                     detailed_loss.append(f'{loss_name}: {loss_value:.5f}')
                 detailed_loss = ', '.join(detailed_loss)
                 logger.info(detailed_loss)
+                
+                # Log training metrics to wandb
+                if local_rank == 0 and args.use_wandb:
+                    wandb_log_dict = {
+                        "train/loss": loss.item(),
+                        "train/lr": lr,
+                        "train/grad_norm": grad_norm,
+                        "epoch": epoch,
+                        "global_iter": global_iter
+                    }
+                    # Add detailed loss components
+                    for loss_name, loss_value in loss_dict.items():
+                        wandb_log_dict[f"train/{loss_name}"] = loss_value
+                    wandb.log(wandb_log_dict)
+                
                 loss_list = []
             data_time_s = time.time()
             time_s = time.time()
@@ -329,10 +356,24 @@ def main(local_rank, args):
         miou, iou2 = miou_metric._after_epoch()
         logger.info(f'mIoU: {miou}, iou2: {iou2}')
         logger.info('Current val loss is %.3f' % (np.mean(val_loss_list)))
+        
+        # Log validation metrics to wandb
+        if local_rank == 0 and args.use_wandb:
+            wandb.log({
+                "val/mIoU": miou,
+                "val/iou2": iou2,
+                "val/loss": np.mean(val_loss_list),
+                "epoch": epoch
+            })
+            
         miou_metric.reset()
     
     if writer is not None:
         writer.close()
+    
+    # Close wandb run
+    if local_rank == 0 and args.use_wandb:
+        wandb.finish()
         
 
 if __name__ == '__main__':
@@ -345,6 +386,10 @@ if __name__ == '__main__':
     parser.add_argument('--seed', type=int, default=42)
     parser.add_argument('--gradient-accumulation', type=int, default=1)
     parser.add_argument('--dataset', type=str, default='nuscenes')
+    # wandb arguments
+    parser.add_argument('--use-wandb', action='store_true', help='Enable Weights & Biases logging')
+    parser.add_argument('--wandb-project', type=str, default='', help='W&B project name')
+    parser.add_argument('--wandb-name', type=str, default='', help='W&B run name')
     args = parser.parse_args()
     
     ngpus = torch.cuda.device_count()

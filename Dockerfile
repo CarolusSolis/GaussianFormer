@@ -41,7 +41,7 @@ RUN pip install --no-cache-dir openmim && \
     mim install mmdet3d==1.4.0
 
 # Install missing dependencies
-RUN pip install --no-cache-dir ftfy regex jaxtyping einops
+RUN pip install --no-cache-dir ftfy regex jaxtyping einops wandb
 
 # Install other packages (cached as a separate layer)
 RUN pip install --no-cache-dir spconv-cu117 timm
