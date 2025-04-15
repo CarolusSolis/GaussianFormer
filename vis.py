@@ -11,12 +11,23 @@ if os.environ.get('DISP', 'f') == 'f':
         print("Failed to start virtual display.")
 
 try:
+    # Set HOME environment variable if not set (needed for Mayavi)
+    import os
+    if 'HOME' not in os.environ:
+        os.environ['HOME'] = '/tmp'
+        print("Setting HOME environment variable to /tmp")
+    
     from mayavi import mlab
     import mayavi
     mlab.options.offscreen = offscreen
     print("Set mlab.options.offscreen={}".format(mlab.options.offscreen))
-except:
-    print("No Mayavi installation found.")
+    MAYAVI_AVAILABLE = True
+except Exception as e:
+    import traceback
+    print("Mayavi import error:")
+    print(traceback.format_exc())
+    print("No Mayavi installation found. Will try to use matplotlib for visualization.")
+    MAYAVI_AVAILABLE = False
 
 import torch, numpy as np
 import matplotlib
@@ -26,12 +37,159 @@ mplstyle.use('fast')
 import matplotlib.pyplot as plt
 from matplotlib import cm
 import matplotlib.colors as colors
+from mpl_toolkits.mplot3d import Axes3D
 from pyquaternion import Quaternion
 from mpl_toolkits.axes_grid1 import ImageGrid
 import os
 
 from model.utils.safe_ops import safe_sigmoid
 
+
+def save_occ_matplotlib(save_dir, gaussian, name, sem=False, cap=2, dataset='nusc'):
+    """Matplotlib-based alternative to the Mayavi visualization"""
+    if dataset == 'nusc':
+        voxel_size = [0.5] * 3
+        vox_origin = [-50.0, -50.0, -5.0]
+        vmin, vmax = 0, 16
+    elif dataset == 'kitti':
+        voxel_size = [0.2] * 3
+        vox_origin = [0.0, -25.6, -2.0]
+        vmin, vmax = 1, 19
+    elif dataset == 'kitti360':
+        voxel_size = [0.2] * 3
+        vox_origin = [0.0, -25.6, -2.0]
+        vmin, vmax = 1, 18
+
+    voxels = gaussian[0].cpu().to(torch.int)
+    voxels[0, 0, 0] = 1
+    voxels[-1, -1, -1] = 1
+    if not sem:
+        voxels[..., (-cap):] = 0
+        for z in range(voxels.shape[-1] - cap):
+            mask = (voxels > 0)[..., z]
+            voxels[..., z][mask] = z + 1 
+    
+    # Compute the voxels coordinates
+    grid_coords = get_grid_coords(
+        voxels.shape, voxel_size
+    ) + np.array(vox_origin, dtype=np.float32).reshape([1, 3])
+
+    grid_coords = np.vstack([grid_coords.T, voxels.reshape(-1)]).T
+    # Get the voxels inside FOV
+    fov_grid_coords = grid_coords
+
+    # Remove empty and unknown voxels
+    if not sem:
+        fov_voxels = fov_grid_coords[
+            (fov_grid_coords[:, 3] > 0) & (fov_grid_coords[:, 3] < 100)
+        ]
+    else:
+        if dataset == 'nusc':
+            fov_voxels = fov_grid_coords[
+                (fov_grid_coords[:, 3] >= 0) & (fov_grid_coords[:, 3] < 17)
+            ]
+        elif dataset == 'kitti360':
+            fov_voxels = fov_grid_coords[
+                (fov_grid_coords[:, 3] > 0) & (fov_grid_coords[:, 3] < 19)
+            ]
+        else:
+            fov_voxels = fov_grid_coords[
+                (fov_grid_coords[:, 3] > 0) & (fov_grid_coords[:, 3] < 20)
+            ]
+    print(len(fov_voxels))
+    
+    # Set up the figure and the 3D plot
+    fig = plt.figure(figsize=(25.6, 14.4), dpi=100)
+    ax = fig.add_subplot(111, projection='3d')
+    
+    # The data needs to be downsampled if it's too large
+    if len(fov_voxels) > 50000:
+        # Downsample to prevent memory issues
+        sampling_rate = max(1, int(len(fov_voxels) / 50000))
+        fov_voxels = fov_voxels[::sampling_rate]
+        print(f"Downsampled to {len(fov_voxels)} points")
+    
+    # Setup the colormap
+    if sem:
+        if dataset == 'nusc':
+            # Get the colors for semantic labels
+            colors_array = np.array([
+                [  0,   0,   0, 255],       # others
+                [255, 120,  50, 255],       # barrier              orange
+                [255, 192, 203, 255],       # bicycle              pink
+                [255, 255,   0, 255],       # bus                  yellow
+                [  0, 150, 245, 255],       # car                  blue
+                [  0, 255, 255, 255],       # construction_vehicle cyan
+                [255, 127,   0, 255],       # motorcycle           dark orange
+                [255,   0,   0, 255],       # pedestrian           red
+                [255, 240, 150, 255],       # traffic_cone         light yellow
+                [135,  60,   0, 255],       # trailer              brown
+                [160,  32, 240, 255],       # truck                purple                
+                [255,   0, 255, 255],       # driveable_surface    dark pink
+                [139, 137, 137, 255],       # other_flat           gray
+                [ 75,   0,  75, 255],       # sidewalk             dark purple
+                [150, 240,  80, 255],       # terrain              light green          
+                [230, 230, 250, 255],       # manmade              white
+                [  0, 175,   0, 255],       # vegetation           green
+            ]).astype(np.float32) / 255.0
+            
+            # Create a colormap for the semantic labels
+            cmap = colors.ListedColormap(colors_array)
+            norm = colors.Normalize(vmin=vmin, vmax=vmax)
+        else:
+            # Use a default colormap for other datasets
+            cmap = plt.cm.jet
+            norm = colors.Normalize(vmin=vmin, vmax=vmax)
+    else:
+        # For non-semantic, use a simple jet colormap
+        cmap = plt.cm.jet
+        norm = colors.Normalize(vmin=0, vmax=100)
+    
+    # Plot the 3D scatter points
+    # Note: size of points needs to be adjusted based on the data
+    s = 2.5 * voxel_size[0] * 100  # Scale marker size based on voxel size
+    scatter = ax.scatter(
+        fov_voxels[:, 0],
+        -fov_voxels[:, 1],  # Invert Y axis to match Mayavi's convention
+        fov_voxels[:, 2],
+        c=fov_voxels[:, 3],
+        cmap=cmap,
+        norm=norm,
+        marker='s',  # Use square markers to represent cubes
+        s=s,
+        alpha=0.8
+    )
+    
+    # Set the camera view to approximate the Mayavi view
+    ax.view_init(elev=30, azim=-60)
+    
+    # Remove grid and set background to white
+    ax.grid(False)
+    ax.set_facecolor('white')
+    fig.patch.set_facecolor('white')
+    
+    # Set axes labels (optional)
+    ax.set_xlabel('X')
+    ax.set_ylabel('Y')
+    ax.set_zlabel('Z')
+    
+    # Set the aspect ratio to be equal
+    # This doesn't work the same way as in 2D plots, but we try to make it look balanced
+    max_range = np.array([fov_voxels[:, 0].max() - fov_voxels[:, 0].min(),
+                          fov_voxels[:, 1].max() - fov_voxels[:, 1].min(),
+                          fov_voxels[:, 2].max() - fov_voxels[:, 2].min()]).max() / 2.0
+    mid_x = (fov_voxels[:, 0].max() + fov_voxels[:, 0].min()) * 0.5
+    mid_y = (fov_voxels[:, 1].max() + fov_voxels[:, 1].min()) * 0.5
+    mid_z = (fov_voxels[:, 2].max() + fov_voxels[:, 2].min()) * 0.5
+    ax.set_xlim(mid_x - max_range, mid_x + max_range)
+    ax.set_ylim(mid_y - max_range, mid_y + max_range)
+    ax.set_zlim(mid_z - max_range, mid_z + max_range)
+    
+    # Save the figure
+    filepath = os.path.join(save_dir, f'{name}.png')
+    fig.savefig(filepath, dpi=100, bbox_inches='tight')
+    print(f"Saved visualization to {filepath}")
+    plt.close(fig)
 
 def get_grid_coords(dims, resolution):
     """
@@ -63,6 +221,11 @@ def save_occ(
         cap=2,
         dataset='nusc'
     ):
+    # If Mayavi is not available, use Matplotlib instead
+    if not MAYAVI_AVAILABLE:
+        return save_occ_matplotlib(save_dir, gaussian, name, sem, cap, dataset)
+        
+    # Original Mayavi implementation follows
     if dataset == 'nusc':
         # voxel_size = [0.4] * 3
         # vox_origin = [-40.0, -40.0, -1.0]
@@ -341,6 +504,31 @@ def get_nuscenes_colormap():
         ]
     ).astype(np.float32) / 255.
     return colors
+
+def save_gaussian_topdown(save_dir, gaussian, name, use_prob=True):
+    # Extract data from Gaussian
+    means = gaussian.means[0].detach().cpu().numpy()  # g, 3
+    sems = gaussian.semantics[0].detach().cpu().numpy()  # g, 18
+    pred = np.argmax(sems, axis=-1)
+    
+    # Set up figure for topdown view
+    plt.figure(figsize=(10, 10))
+    
+    # Create a scatter plot with semantic colors
+    colors = get_nuscenes_colormap()
+    color_array = np.array([colors[p] for p in pred])
+    
+    # Plot points from top-down view (x, y)
+    plt.scatter(means[:, 0], -means[:, 1], c=color_array, s=2)
+    plt.axis('equal')
+    
+    # Set limits to match the scene boundaries
+    plt.xlim(-50, 50)
+    plt.ylim(-50, 50)
+    
+    # Save the figure
+    plt.savefig(os.path.join(save_dir, f'{name}_topdown.png'), dpi=300, bbox_inches='tight')
+    plt.close()
 
 def save_gaussian(save_dir, gaussian, name, scalar=1.5, ignore_opa=False, filter_zsize=False):
 
