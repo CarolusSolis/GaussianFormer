@@ -20,7 +20,8 @@ val_dataset_config = dict(
 )
 # NOTE: modify this to add a num_samples in order to reduce dataset size, full 28k takes 14 hours for 1 epoch
 train_dataset_config = dict(
-    data_aug_conf=data_aug_conf
+    data_aug_conf=data_aug_conf,
+    num_samples=3000
 )
 # =========== misc config ==============
 optimizer = dict(

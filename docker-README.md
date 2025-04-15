@@ -17,7 +17,7 @@ This Docker setup provides a reproducible environment for running GaussianFormer
 
 2. Run the container (interactive mode):
    ```bash
-   docker run --gpus all -it --ipc=host --shm-size=16G -v "$(pwd)":/app --rm gaussianformer:latest
+   docker run --gpus all -it --ipc=host --shm-size=16G -v "$(pwd)":/app gaussianformer:latest
    ```
 
 3. Exit the container:

@@ -6,7 +6,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Set working directory
 WORKDIR /app
 
-# Install essential packages
+# Install essential packages and X11 dependencies for visualization
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     ca-certificates \
@@ -19,6 +19,30 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libxext6 \
     libxrender1 \
     wget \
+    # X11 and visualization dependencies \
+    xvfb \
+    libxcb1 \
+    libxcb-keysyms1 \
+    libxcb-render0 \
+    libxcb-render-util0 \
+    libxcb-shape0 \
+    libxcb-icccm4 \
+    libxcb-image0 \
+    libxcb-shm0 \
+    libxcb-util1 \
+    libxcb-xkb1 \
+    libxkbcommon-x11-0 \
+    x11-xserver-utils \
+    fontconfig \
+    libdbus-1-3 \
+    dbus \
+    # Additional Qt dependencies \
+    libxcb-randr0 \
+    libxcb-xtest0 \
+    libxcb-xinerama0 \
+    libxcb-xinput0 \
+    libxcb-xfixes0 \
+    libxt-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set environment variables for CUDA
@@ -47,7 +71,7 @@ RUN pip install --no-cache-dir ftfy regex jaxtyping einops wandb
 RUN pip install --no-cache-dir spconv-cu117 timm
 
 # Install visualization packages (optional, cached as a separate layer)
-RUN pip install --no-cache-dir pyvirtualdisplay mayavi matplotlib==3.7.2 PyQt5
+RUN pip install --no-cache-dir pyvirtualdisplay mayavi==4.8.2 matplotlib==3.7.2 PyQt5==5.15.6 configobj
 
 # Final stage - copy the code and install custom ops
 FROM builder AS final
