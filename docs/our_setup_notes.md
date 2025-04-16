@@ -53,3 +53,9 @@ python eval.py --py-config config/prob/nuscenes_gs25600.py --work-dir out/prob25
 ```bash
 python train.py --py-config config/prob/nuscenes_gs6400.py --work-dir out/prob6400/ --use-wandb --wandb-project gaussianformer2 --wandb-name test64
 ```
+
+### Visualization
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python visualize.py --py-config config/prob/nuscenes_gs6400.py --work-dir out/prob6400 --resume-from out/prob6400/latest.pth --vis-occ --num-samples 1 --model-type base
+

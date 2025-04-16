@@ -23,9 +23,6 @@ try:
     print("Set mlab.options.offscreen={}".format(mlab.options.offscreen))
     MAYAVI_AVAILABLE = True
 except Exception as e:
-    import traceback
-    print("Mayavi import error:")
-    print(traceback.format_exc())
     print("No Mayavi installation found. Will try to use matplotlib for visualization.")
     MAYAVI_AVAILABLE = False
 
