@@ -54,6 +54,12 @@ python eval.py --py-config config/prob/nuscenes_gs25600.py --work-dir out/prob25
 python train.py --py-config config/prob/nuscenes_gs6400.py --work-dir out/prob6400/ --use-wandb --wandb-project gaussianformer2 --wandb-name test64
 ```
 
+#### Training with localized
+
+```bash
+python train.py --py-config config/prob/nuscenes_gs6400_localized.py --work-dir out/prob6400_localized/ --use-wandb --wandb-project gaussianformer2 --wandb-name test64_localized
+```
+
 ### Visualization
 
 ```bash
