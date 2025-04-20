@@ -63,5 +63,11 @@ python train.py --py-config config/prob/nuscenes_gs6400_localized.py --work-dir 
 ### Visualization
 
 ```bash
-CUDA_VISIBLE_DEVICES=0 python visualize.py --py-config config/prob/nuscenes_gs6400.py --work-dir out/prob6400 --resume-from out/prob6400/latest.pth --vis-occ --num-samples 1 --model-type base
+CUDA_VISIBLE_DEVICES=0 python visualize.py --py-config config/prob/nuscenes_gs6400.py --work-dir out/prob6400 --resume-from out/prob6400/latest.pth --vis-occ --num-samples 5 --model-type base
+```
 
+#### Visualization with Comparison
+
+```bash
+CUDA_VISIBLE_DEVICES=0 python visualize_compare.py   --py-config1 config/prob/nuscenes_gs6400.py   --work-dir1 out/prob6400   --resume-from1 out/prob6400/latest.pth   --model1-type prob   --py-config2 config/prob/nuscenes_gs6400_localized.py   --work-dir2 out/prob6400_localized   --resume-from2 out/prob6400_localized/latest.pth   --model2-type prob   --common-save-dir out/comparison_results   --vis-occ   --num-samples 10   --dataset nusc
+```
